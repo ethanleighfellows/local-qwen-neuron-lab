@@ -17,3 +17,18 @@ models:
       contextLength: 2048
       maxTokens: 512
       temperature: 0
+  - name: Qwen3.5-4B Uncensored (unsteered)
+    provider: openai
+    model: HauhauCS/Qwen3.5-4B-Uncensored-HauhauCS-Aggressive
+    apiBase: http://127.0.0.1:8000/v1
+    apiKey: local-only
+    roles:
+      - chat
+      - edit
+      - apply
+    capabilities:
+      - tool_use
+    defaultCompletionOptions:
+      contextLength: 2048
+      maxTokens: 512
+      temperature: 0

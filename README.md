@@ -1,10 +1,68 @@
 # Local Qwen Neuron Lab
 
-Local Qwen3.5-4B text inference with bitsandbytes **NF4**, double quantization,
-FP16 computation, direct MLP neuron interventions, SQLite profiles, a browser
-chat UI, and an OpenAI chat-completions endpoint shared with Continue.
+Local Qwen3.5-4B text inference with a choice of llama.cpp **Q4_K_M** or
+Transformers/bitsandbytes **NF4**. Both backends provide direct MLP neuron
+interventions, SQLite profiles, a browser chat UI, and an OpenAI-compatible
+endpoint shared with Continue.
 
-## Install and start (Windows)
+## llama.cpp on Windows with NVIDIA CUDA
+
+After the base environment has been installed with `install.ps1`, install and
+start the llama.cpp backend:
+
+```powershell
+.\install-llama.cmd
+.\start.cmd
+```
+
+The `.cmd` launchers apply a process-only PowerShell execution policy so the
+commands also work when local PowerShell scripts are blocked.
+Keep the server terminal open and use <http://127.0.0.1:8000> or the existing
+Continue configuration. Stop any other server using port 8000 first.
+
+The llama.cpp backend serves the official b11312 llama.cpp web interface at
+that address. The **Steering** control in the lower left selects the shared
+profile or opens the original profile editor. Profile changes also apply to
+subsequent Continue requests. Your `L14 N8949 +0.4` profile contains only that
+one neuron. The old chat interface and its saved conversations remain available
+at <http://127.0.0.1:8000/steering>.
+
+The llama.cpp interface saves its new conversations in the browser's IndexedDB;
+they persist in that browser but are separate from the original SQLite chat
+history. Streaming works, but reconnecting to an interrupted stream and the
+llama.cpp server's built-in tools are not available through this adapter.
+Temperature, top-p, top-k, min-p, typical-p, repeat penalty and token limit are
+supported. Other llama.cpp sampling and reasoning controls are not implemented;
+the server returns an error instead of silently applying an unsupported setting.
+
+The installer downloads the Unsloth Qwen3.5-4B Q4_K_M GGUF (2.74 GB), the
+official llama-cpp-python 0.3.36 CUDA 12.5 wheel, and the matching official
+llama.cpp b11312 CPU archive. Its SHA-256 is checked before the AVX2 CPU
+library is copied into a project-local DLL bundle. This combination supports
+the RTX 2060 and this machine's AVX2 CPU; the original wheel's CPU DLL uses
+unsupported AVX-512 instructions here. The existing CUDA PyTorch installation
+supplies CUDA DLLs, but the llama.cpp server does not import PyTorch or run
+the Transformers model. The GGUF model contains its own tokenizer and chat
+template, so cached local inference needs no network access.
+The verified release also supplies the web UI assets; the installer extracts
+them with a temporary local server and then stops it.
+
+The llama.cpp loader validates Qwen3.5 and Q4_K_M and uses CUDA offloading.
+The GGUF file is about 2.55 GiB on disk; this machine's model load reported
+approximately 2.54 GiB of CUDA model buffers plus about 497 MiB of mapped CPU
+model data, before context and GPU workspace. Set `LLAMA_GGUF_PATH` to use a
+different Qwen3.5 Q4_K_M file, or `LLAMA_CONTEXT_TOKENS` to adjust the 2048
+token context limit. The server fails if it cannot load the CUDA build or the
+requested quantization; it does not silently switch to NF4.
+
+For existing installations, the same SQLite profiles and conversation history
+are used. The two backends produce different output and use separate calibration
+data because their quantized weights differ. `start.ps1` continues to select
+the original Transformers backend; select llama.cpp with `start.cmd` or `start-llama.cmd`.
+Only the Windows NVIDIA build is currently configured for llama.cpp. Its CPU
+backend requires AVX2 and Haswell-compatible CPU instructions.
+
+## Transformers backend (Windows)
 
 Requires Python 3.12, a CUDA-capable NVIDIA GPU, and a recent NVIDIA driver.
 This machine has Windows 11, RTX 2060 6 GB, and 16 GB RAM. CUDA PyTorch is
@@ -51,12 +109,13 @@ to `main`; use the resolved commit printed in logs to pin subsequent installs.
 
 ## Steering
 
-Two ready-to-select presets ship with new installations:
+Ready-to-select presets ship with new installations:
 
 | Profile | L14 neuron 8949 | L13 neuron 7956 |
 | --- | --- | --- |
 | Full dose | +1 | -1 |
 | Half dose | +0.5 | -0.5 |
+| L14 N8949 +0.4 | +0.4 | off |
 
 Select a preset in the steering panel to make it the server's global default
 for web chat and Continue. Baseline remains the initial selection on a fresh
@@ -77,17 +136,18 @@ in the panel. The global switch overrides every profile, including conversation
 overrides. Baseline is an ordinary disabled profile.
 
 The engine adds `dose * median_residual_norm / down_weight_column_norm` to the
-input of `layer.mlp.down_proj`. This changes activations on every processed
-token, including prefill and single-token decoding; model parameters are never
-edited. Quantized columns are dequantized using bitsandbytes' quantization
-state before computing their L2 norm. Multiple neurons share one hook per layer.
-Hooks are removed in `finally`, including failed requests.
+input of the layer's MLP down projection. This changes activations on every
+processed token, including prefill and single-token decoding; model parameters
+are never edited. Transformers dequantizes the column with bitsandbytes. The
+llama.cpp backend dequantizes the relevant GGUF quantization block and applies
+offsets through a GGML evaluation callback at the `ffn_swiglu` node immediately
+before the down projection. Multiple neurons can be active in a layer.
 
 Calibration runs without steering on three fixed text samples (see
-`app/runtime.py`). Each layer's output residual L2 norm is collected at positions
+`app/model_config.py`). Each layer's output residual L2 norm is collected at positions
 `t >= 1`, excluding the first token of each sample. The median uses interpolated
 0.5 quantile over pooled sample tokens. Cache identity includes the resolved
-model commit, quantization, compute dtype, runtime versions, calibration text,
+model revision or GGUF SHA-256, quantization, runtime versions, calibration text,
 token limit, and method. Calibration statistics, effective shifts, and measured
 input differences from the latest inference appear in the inspection panel.
 
@@ -130,6 +190,12 @@ A 4B model and 2048-token input budget limit agent reliability. Large tool lists
 workspace dumps and long tasks can exceed the context budget. A protocol test
 does not establish model tool reliability or a successful Continue UI run;
 see `VERIFICATION.md` for the actual acceptance evidence and outstanding checks.
+In a test of this Q4_K_M model, the Baseline profile completed a tool call and
+continuation, while the Full dose profile produced malformed tool markup and
+Half dose answered without calling the tool. Steering can therefore interfere
+with Agent mode. The server reports malformed tool markup rather than silently
+disabling the selected profile. Select Baseline or a different dose if reliable
+tool calling is more important for a task.
 
 Continue reference: <https://docs.continue.dev/reference>.
 Model architecture: <https://huggingface.co/Qwen/Qwen3.5-4B/blob/main/config.json>.
@@ -142,6 +208,7 @@ Invoke-RestMethod http://127.0.0.1:8000/v1/models
 .\.venv\Scripts\python.exe -m pytest -q
 .\.venv\Scripts\python.exe -m scripts.verify_model
 .\.venv\Scripts\python.exe -m scripts.verify_api
+.\.venv\Scripts\python.exe -m scripts.verify_llama
 ```
 
 `POST /v1/chat/completions` supports standard messages, tools, streaming,
@@ -170,3 +237,18 @@ rendered browser QA described in `VERIFICATION.md`.
 Keep the server bound to loopback. It has no authentication and is intended for
 a single local user. Browser cross-origin writes are rejected. SQLite content
 and logs may contain conversation/configuration information.
+
+## Two llama.cpp models
+
+The llama.cpp launcher serves both the original Qwen3.5-4B Q4_K_M model and
+[HauhauCS Qwen3.5-4B Uncensored Aggressive Q4_K_M](https://huggingface.co/HauhauCS/Qwen3.5-4B-Uncensored-HauhauCS-Aggressive).
+The installer downloads both GGUF files into `data/gguf`; they are not committed to Git.
+Start `start.cmd`, open http://127.0.0.1:8000, and use the **Steering** button
+at the bottom left to select a model. The server loads one model at a time;
+the first response after switching can take longer while the model loads.
+The Uncensored model is always unsteered, regardless of the selected profile.
+The original model retains its steering profile.
+
+Continue has separate model entries in `continue/config.yaml`; copy or merge them
+into your Continue configuration and select the desired model in Continue. Both
+entries use the same local server and can request different models independently.

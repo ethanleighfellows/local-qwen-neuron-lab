@@ -13,6 +13,7 @@ class Store:
         self.db = sqlite3.connect(path, check_same_thread=False)
         with self.db:
             self.db.execute("CREATE TABLE IF NOT EXISTS state (id INTEGER PRIMARY KEY, value TEXT)")
+            self.db.execute("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)")
             self.db.execute("CREATE TABLE IF NOT EXISTS chats (id TEXT PRIMARY KEY, value TEXT)")
             self.db.execute("INSERT OR IGNORE INTO state VALUES (1, ?)", (json.dumps(initial_state()),))
 
@@ -36,6 +37,15 @@ class Store:
         profile = state["profiles"][name]
         return {"name": name, "version": state["version"], "codes": profile["steering"]
                 if state["enabled"] and profile["enabled"] else []}
+
+    def get_setting(self, key, default=None):
+        with self.lock:
+            row = self.db.execute("SELECT value FROM settings WHERE key=?", (key,)).fetchone()
+            return row[0] if row else default
+
+    def set_setting(self, key, value):
+        with self.lock, self.db:
+            self.db.execute("INSERT OR REPLACE INTO settings VALUES (?, ?)", (key, value))
 
     def chats(self):
         with self.lock:

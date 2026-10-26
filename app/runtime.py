@@ -10,13 +10,7 @@ import torch
 import transformers
 from transformers import AutoTokenizer, BitsAndBytesConfig, TextIteratorStreamer
 from .steering import Code, SteeringEngine
-
-MODEL = "Qwen/Qwen3.5-4B"
-CALIBRATION = [
-    "Explain how a computer stores a list of numbers and sorts it into ascending order.",
-    "The river flows through the valley. Describe the changing seasons and the water cycle.",
-    "Write a Python function that adds two integers, then explain how to test the function.",
-]
+from .model_config import CALIBRATION, MODEL
 
 
 class Runtime:
@@ -143,6 +137,11 @@ class Runtime:
                         streamer=streamer, use_cache=True, pad_token_id=self.tokenizer.eos_token_id)
                     if temperature > 0:
                         kwargs.update(temperature=temperature, top_p=request.get("top_p", .9))
+                        for source, target in [('top_k', 'top_k'), ('min_p', 'min_p'), ('typ_p', 'typical_p')]:
+                            if source in request:
+                                kwargs[target] = request[source]
+                    if 'repeat_penalty' in request:
+                        kwargs['repetition_penalty'] = request['repeat_penalty']
                     with torch.inference_mode():
                         if request.get("seed") is not None:
                             torch.manual_seed(request["seed"])

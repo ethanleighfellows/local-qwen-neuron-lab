@@ -3,6 +3,12 @@ from copy import deepcopy
 
 
 PRESETS = {
+    "L14 N8949 +0.4": {
+        "enabled": True,
+        "steering": [
+            {"layer": 14, "neuron": 8949, "dose": 0.4, "enabled": True},
+        ],
+    },
     "Full dose": {
         "enabled": True,
         "steering": [

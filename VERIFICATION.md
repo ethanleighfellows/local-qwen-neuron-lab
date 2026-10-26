@@ -22,9 +22,9 @@ are used. Runtime is genuine NF4 with double quantization and FP16 compute.
 | 11. Concurrent request isolation | Passed with real GPU baseline and steered requests and separate API snapshot tests. GPU inference is serialized. |
 | 12. Logging | Model revision, quantization, calibration method/statistics, startup profile, request codes and effective shifts are logged. |
 
-Six automated tests cover bundled presets, parsing, persistence, snapshot isolation, real PyTorch
+Eight automated tests cover bundled presets, parsing, persistence, snapshot isolation, real PyTorch
 activation hooks, repeated hook installation, signed/zero/disabled doses, API
-streaming, native tool syntax, matching tool results, and concurrent API clients.
+streaming, native tool syntax, malformed tool output, matching tool results, and concurrent API clients.
 `pip check`, Python compilation and JavaScript syntax checks passed.
 
 The live API test completed a genuine model → `read_file` → model continuation,
@@ -35,11 +35,50 @@ task; it does not establish general 4B agent reliability.
 Machine-readable evidence is retained in:
 
 - `data/acceptance.json`: real model activation and deterministic inference checks.
-- `data/api-acceptance.json`: live API responses and tool-result continuation.
+- `data/api-acceptance.json`: latest default-profile API run. The earlier NF4
+  API report was replaced by the later full-dose llama.cpp check.
 - `data/persistence-acceptance.json`: actual process-restart checks.
 - `data/hardware-test.log`: model-loading and hardware test output.
 - `data/server.stderr.log`: model metadata and inference logs.
 - `data/vscode-test.stdout.log`: attempted extension-host launch and updater mutex.
+
+## llama.cpp backend
+
+The llama.cpp CUDA backend was verified on the same RTX 2060 using the
+Unsloth Qwen3.5-4B Q4_K_M GGUF, SHA-256
+`00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4`.
+It uses llama-cpp-python 0.3.36 and llama.cpp b11312. The official wheel's
+AVX-512 CPU binary crashes on this AVX2 CPU; the installed DLL bundle uses
+the official b11312 Haswell/AVX2 CPU library with the CUDA wheel's other DLLs.
+
+Real-model checks passed for baseline generation, both signed interventions
+in prefill and decoding, restoration of deterministic baseline behavior, and
+concurrent request isolation. The calculated GGUF down-projection column norm
+matched a full dequantization. The requested +1/-1 profile produced shifts of
+approximately +24.252 and -23.919 respectively. Results are recorded in
+`data/llama-acceptance.json`.
+
+The live server returned streaming responses and inherited the active profile.
+With the Baseline profile, a model-requested read-file call, matching tool
+result, and continuation passed in both ordinary and streamed API responses;
+the ordinary run is recorded in `data/llama-api-baseline.json`. With the Full
+dose profile, the same prompt generated malformed tool text. Half dose answered
+without requesting the tool. This is an observed limitation of these model and
+steering settings, not evidence that every agent task will fail. Continue's UI
+itself remains unverified because its extension-host test could not launch.
+
+## llama.cpp web interface and single-neuron profile
+
+The official b11312 web assets are served by the same local inference server.
+The native UI request format, profile API, static asset paths, and a real
+streamed response were checked. `L14 N8949 +0.4` was the sole active code in
+that request; its requested activation shift was 9.7007314 and the measured
+shift was 9.7007313 during both prompt processing and decoding. The report is
+in `data/native-ui-acceptance.json`.
+
+The new launcher was checked with PowerShell's script policy active and reports
+an already-running server without loading a second model. A rendered browser
+check was not available in this environment.
 
 The browser UI returned HTTP 200 and its JavaScript parsed successfully. No
 browser or native-app control surface was available for rendered UI QA.

@@ -1,7 +1,6 @@
 """Real down-projection input interventions; never modifies model parameters."""
 import re
 from dataclasses import dataclass
-import torch
 
 
 @dataclass(frozen=True)
