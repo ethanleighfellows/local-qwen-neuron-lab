@@ -6,8 +6,7 @@ chat UI, and an OpenAI chat-completions endpoint shared with Continue.
 
 ## Install and start (Windows)
 
-Requires Python 3.12, a CUDA-capable NVIDIA GPU, and a recent NVIDIA driver.
-This machine has Windows 11, RTX 2060 6 GB, and 16 GB RAM. CUDA PyTorch is
+Requires Python 3.12, a CUDA-capable NVIDIA GPU, and a recent NVIDIA driver.CUDA PyTorch is
 installed into `.venv`; system Python packages are unaffected.
 
 ```powershell
