@@ -64,8 +64,7 @@ backend requires AVX2 and Haswell-compatible CPU instructions.
 
 ## Transformers backend (Windows)
 
-Requires Python 3.12, a CUDA-capable NVIDIA GPU, and a recent NVIDIA driver.
-This machine has Windows 11, RTX 2060 6 GB, and 16 GB RAM. CUDA PyTorch is
+Requires Python 3.12, a CUDA-capable NVIDIA GPU, and a recent NVIDIA driver. CUDA PyTorch is
 installed into `.venv`; system Python packages are unaffected.
 
 ```powershell
