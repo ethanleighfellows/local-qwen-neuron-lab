@@ -1,0 +1,19 @@
+name: Local Qwen Neuron Lab
+version: 1.0.0
+schema: v1
+models:
+  - name: Qwen3.5-4B Local Steered
+    provider: openai
+    model: Qwen/Qwen3.5-4B
+    apiBase: http://127.0.0.1:8000/v1
+    apiKey: local-only
+    roles:
+      - chat
+      - edit
+      - apply
+    capabilities:
+      - tool_use
+    defaultCompletionOptions:
+      contextLength: 2048
+      maxTokens: 512
+      temperature: 0

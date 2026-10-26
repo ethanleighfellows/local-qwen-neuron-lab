@@ -1,0 +1,14 @@
+.venv/
+data/
+__pycache__/
+.pytest_cache/
+pytest-cache-files-*/
+*.log
+.env
+.env.*
+!.env.example
+*.sqlite3
+*.sqlite3-*
+*.safetensors
+*.gguf
+*.pem

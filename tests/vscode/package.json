@@ -1,0 +1,1 @@
+{"name":"neuronlab-acceptance-test","publisher":"local-neuron-lab","version":"0.1.0","engines":{"vscode":"^1.90.0"},"main":"extension.cjs","activationEvents":[]}
